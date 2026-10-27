@@ -1,10 +1,12 @@
+
 """
 Dynamic Programming Assignment - Longest Common Subsequence
-Implement three versions: naive recursive, memoization, and tabulation.
+Compare naive recursion, memoization, and bottom-up tabulation.
 """
 
 import json
 import time
+from functools import lru_cache
 
 
 # ============================================================================
@@ -12,30 +14,21 @@ import time
 # ============================================================================
 
 def lcs_recursive(seq1, seq2):
-    """
-    Find the length of longest common subsequence using pure recursion.
-    
-    A subsequence is a sequence that appears in the same relative order but not
-    necessarily contiguous. For example, "ACE" is a subsequence of "ABCDE".
-    
-    Args:
-        seq1 (str): First DNA sequence
-        seq2 (str): Second DNA sequence
-    
-    Returns:
-        int: Length of longest common subsequence
-    
-    Example:
-        lcs_recursive("AGGTAB", "GXTXAYB") returns 4 (LCS is "GTAB")
-    
-    WARNING: This will be exponentially slow on large inputs!
-    """
-    # TODO: Implement naive recursive solution
-    # Hint: Base case - if either sequence is empty, LCS length is 0
-    # Hint: If last characters match, LCS length = 1 + LCS of remaining sequences
-    # Hint: If last characters don't match, try removing last char from each sequence, take max
-    
-    pass  # Delete this and write your code
+    """Return the LCS length using pure recursion (exponential time)."""
+
+    # An empty sequence has no common subsequence.
+    if not seq1 or not seq2:
+        return 0
+
+    # Matching final characters can be included in the LCS.
+    if seq1[-1] == seq2[-1]:
+        return 1 + lcs_recursive(seq1[:-1], seq2[:-1])
+
+    # Otherwise, try removing the final character from either sequence.
+    return max(
+        lcs_recursive(seq1[:-1], seq2),
+        lcs_recursive(seq1, seq2[:-1])
+    )
 
 
 # ============================================================================
@@ -43,29 +36,22 @@ def lcs_recursive(seq1, seq2):
 # ============================================================================
 
 def lcs_memoization(seq1, seq2):
-    """
-    Find the length of longest common subsequence using memoization.
-    
-    Memoization caches results of subproblems to avoid redundant calculations.
-    This is a top-down approach - starts with original problem and breaks down.
-    
-    Args:
-        seq1 (str): First DNA sequence
-        seq2 (str): Second DNA sequence
-    
-    Returns:
-        int: Length of longest common subsequence
-    
-    Example:
-        lcs_memoization("AGGTAB", "GXTXAYB") returns 4 (LCS is "GTAB")
-    """
-    # TODO: Implement memoization solution
-    # Hint: Create a cache dictionary to store results
-    # Hint: Use tuple of (i, j) as key where i, j are positions in sequences
-    # Hint: Check cache before computing, store result before returning
-    # Hint: You may want to create a helper function that takes indices
-    
-    pass  # Delete this and write your code
+    """Return the LCS length using recursion and cached subproblems."""
+
+    @lru_cache(maxsize=None)
+    def solve(i, j):
+        # No characters remain in one of the prefixes.
+        if i == 0 or j == 0:
+            return 0
+
+        # Matching characters extend the LCS of smaller prefixes.
+        if seq1[i - 1] == seq2[j - 1]:
+            return 1 + solve(i - 1, j - 1)
+
+        # Reuse cached results for both alternatives.
+        return max(solve(i - 1, j), solve(i, j - 1))
+
+    return solve(len(seq1), len(seq2))
 
 
 # ============================================================================
@@ -73,30 +59,23 @@ def lcs_memoization(seq1, seq2):
 # ============================================================================
 
 def lcs_tabulation(seq1, seq2):
-    """
-    Find the length of longest common subsequence using tabulation.
-    
-    Tabulation builds a table iteratively from base cases up to the solution.
-    This is a bottom-up approach - starts with smallest subproblems.
-    
-    Args:
-        seq1 (str): First DNA sequence
-        seq2 (str): Second DNA sequence
-    
-    Returns:
-        int: Length of longest common subsequence
-    
-    Example:
-        lcs_tabulation("AGGTAB", "GXTXAYB") returns 4 (LCS is "GTAB")
-    """
-    # TODO: Implement tabulation solution
-    # Hint: Create a 2D table where dp[i][j] = LCS length of seq1[0..i] and seq2[0..j]
-    # Hint: Initialize first row and column to 0 (empty sequence cases)
-    # Hint: Fill table row by row
-    # Hint: If characters match: dp[i][j] = dp[i-1][j-1] + 1
-    # Hint: If characters don't match: dp[i][j] = max(dp[i-1][j], dp[i][j-1])
-    
-    pass  # Delete this and write your code
+    """Return the LCS length using an iterative dynamic programming table."""
+
+    m, n = len(seq1), len(seq2)
+
+    # dp[i][j] stores the LCS length for the first i and j characters.
+    # Initializing to zero handles empty-prefix base cases.
+    dp = [[0] * (n + 1) for _ in range(m + 1)]
+
+    # Build solutions from shorter prefixes to longer prefixes.
+    for i in range(1, m + 1):
+        for j in range(1, n + 1):
+            if seq1[i - 1] == seq2[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1] + 1
+            else:
+                dp[i][j] = max(dp[i - 1][j], dp[i][j - 1])
+
+    return dp[m][n]
 
 
 # ============================================================================
@@ -104,144 +83,118 @@ def lcs_tabulation(seq1, seq2):
 # ============================================================================
 
 def load_sequence(filename):
-    """Load DNA sequence from JSON file."""
+    """Load DNA sequence data from the sequences directory."""
     with open(f"sequences/{filename}", "r") as f:
         return json.load(f)
 
 
 def test_small_cases():
     """Test all implementations on small known cases."""
-    print("="*70)
+    print("=" * 70)
     print("TESTING ON SMALL CASES")
-    print("="*70 + "\n")
-    
+    print("=" * 70)
+
     test_cases = [
-        ("AGGTAB", "GXTXAYB", 4),  # LCS: GTAB
-        ("ABCDGH", "AEDFHR", 3),   # LCS: ADH
-        ("ABC", "AC", 2),           # LCS: AC
-        ("", "ABC", 0),             # LCS: empty
+        ("AGGTAB", "GXTXAYB", 4),
+        ("ABCDGH", "AEDFHR", 3),
+        ("ABC", "AC", 2),
+        ("", "ABC", 0),
     ]
-    
+
     for seq1, seq2, expected in test_cases:
-        print(f"Test: '{seq1}' vs '{seq2}'")
-        print(f"  Expected LCS length: {expected}")
-        
-        # Test recursive
-        try:
-            result = lcs_recursive(seq1, seq2)
-            status = "✓ PASS" if result == expected else "✗ FAIL"
-            print(f"  Recursive: {result} {status}")
-        except Exception as e:
-            print(f"  Recursive: ERROR - {str(e)}")
-        
-        # Test memoization
-        try:
-            result = lcs_memoization(seq1, seq2)
-            status = "✓ PASS" if result == expected else "✗ FAIL"
-            print(f"  Memoization: {result} {status}")
-        except Exception as e:
-            print(f"  Memoization: ERROR - {str(e)}")
-        
-        # Test tabulation
-        try:
-            result = lcs_tabulation(seq1, seq2)
-            status = "✓ PASS" if result == expected else "✗ FAIL"
-            print(f"  Tabulation: {result} {status}")
-        except Exception as e:
-            print(f"  Tabulation: ERROR - {str(e)}")
-        
-        print()
+        print(f"\nTest: {seq1!r} vs {seq2!r}")
+        print(f"Expected LCS length: {expected}")
+
+        for name, function in [
+            ("Recursive", lcs_recursive),
+            ("Memoization", lcs_memoization),
+            ("Tabulation", lcs_tabulation),
+        ]:
+            try:
+                result = function(seq1, seq2)
+                status = "PASS" if result == expected else "FAIL"
+                print(f"  {name}: {result} {status}")
+            except Exception as error:
+                print(f"  {name}: ERROR - {error}")
 
 
 def time_recursive():
-    """Time the recursive solution on progressively larger inputs."""
-    print("\n" + "="*70)
+    """Time naive recursion on small sequences only."""
+    print("\n" + "=" * 70)
     print("TIMING RECURSIVE SOLUTION")
-    print("="*70 + "\n")
-    print("WARNING: Recursive solution will become very slow!\n")
-    
-    sizes = [10, 20, 50]  # Keep small to avoid infinite wait
-    
-    for size in sizes:
+    print("=" * 70)
+
+    for size in [10, 20, 50]:
         data = load_sequence(f"dna_{size}.json")
-        seq1 = data["sequence1"]
-        seq2 = data["sequence2"]
-        
-        print(f"Sequence length: {size}")
-        
+        seq1, seq2 = data["sequence1"], data["sequence2"]
+
+        print(f"\nSequence length: {size}")
         start = time.perf_counter()
-        result = lcs_recursive(seq1, seq2)
-        elapsed = time.perf_counter() - start
-        
-        print(f"  LCS length: {result}")
-        print(f"  Time: {elapsed:.4f} seconds\n")
-        
-        if elapsed > 5.0:
-            print("  Stopping - recursive is too slow for larger inputs!\n")
+
+        try:
+            result = lcs_recursive(seq1, seq2)
+            elapsed = time.perf_counter() - start
+            print(f"  LCS length: {result}")
+            print(f"  Time: {elapsed:.4f} seconds")
+        except RecursionError:
+            print("  ERROR: recursion limit reached")
+            break
+
+        if elapsed > 5:
+            print("  Stopping: naive recursion is too slow.")
             break
 
 
 def compare_all_approaches():
-    """Compare all three approaches on sequences of increasing size."""
-    print("\n" + "="*70)
+    """Benchmark each approach on the provided sequence sizes."""
+    print("\n" + "=" * 76)
     print("COMPARING ALL APPROACHES")
-    print("="*70 + "\n")
-    
-    sizes = [10, 20, 50, 100, 200, 500, 1000]
-    
-    print(f"{'Size':<10} {'Recursive':<15} {'Memoization':<15} {'Tabulation':<15}")
-    print("-" * 70)
-    
-    for size in sizes:
+    print("=" * 76)
+    print(f"{'Size':<10} {'Recursive':<18} {'Memoization':<18} {'Tabulation':<18}")
+    print("-" * 76)
+
+    for size in [10, 20, 50, 100, 200, 500, 1000]:
         data = load_sequence(f"dna_{size}.json")
-        seq1 = data["sequence1"]
-        seq2 = data["sequence2"]
-        
-        times = {"size": size}
-        
-        # Recursive (skip if too large)
+        seq1, seq2 = data["sequence1"], data["sequence2"]
+        results = {}
+
+        # Naive recursion is intentionally skipped for larger sequences.
         if size <= 20:
             try:
                 start = time.perf_counter()
                 lcs_recursive(seq1, seq2)
-                times["recursive"] = time.perf_counter() - start
-            except:
-                times["recursive"] = None
+                results["recursive"] = f"{time.perf_counter() - start:.4f}s"
+            except (RecursionError, Exception):
+                results["recursive"] = "ERROR"
         else:
-            times["recursive"] = None
-        
-        # Memoization
+            results["recursive"] = "Skipped"
+
+        # Memoization is fast, but recursive depth may limit large inputs.
         try:
             start = time.perf_counter()
             lcs_memoization(seq1, seq2)
-            times["memoization"] = time.perf_counter() - start
-        except:
-            times["memoization"] = None
-        
-        # Tabulation
+            results["memoization"] = f"{time.perf_counter() - start:.4f}s"
+        except (RecursionError, Exception):
+            results["memoization"] = "ERROR"
+
+        # Tabulation avoids recursive-call depth limitations.
         try:
             start = time.perf_counter()
             lcs_tabulation(seq1, seq2)
-            times["tabulation"] = time.perf_counter() - start
-        except:
-            times["tabulation"] = None
-        
-        # Print results
-        rec_str = f"{times['recursive']:.4f}s" if times['recursive'] else "Too slow"
-        mem_str = f"{times['memoization']:.4f}s" if times['memoization'] else "ERROR"
-        tab_str = f"{times['tabulation']:.4f}s" if times['tabulation'] else "ERROR"
-        
-        print(f"{size:<10} {rec_str:<15} {mem_str:<15} {tab_str:<15}")
+            results["tabulation"] = f"{time.perf_counter() - start:.4f}s"
+        except Exception:
+            results["tabulation"] = "ERROR"
+
+        print(
+            f"{size:<10} "
+            f"{results['recursive']:<18} "
+            f"{results['memoization']:<18} "
+            f"{results['tabulation']:<18}"
+        )
 
 
 if __name__ == "__main__":
-    print("DYNAMIC PROGRAMMING ASSIGNMENT - STARTER CODE")
-    print("Implement the LCS functions above, then run tests.\n")
-    
-    # Uncomment these as you complete each part:
-    
-    # test_small_cases()
-    # time_recursive()
-    # compare_all_approaches()
-    
-    print("\n⚠ Uncomment the test functions in the main block to run tests!")
+    print("DYNAMIC PROGRAMMING ASSIGNMENT - LCS\n")
+
+    test_small_cases()
+    compare_all_approaches()
